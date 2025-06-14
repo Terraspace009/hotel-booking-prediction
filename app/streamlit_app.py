@@ -1,28 +1,38 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 
 st.set_page_config(page_title="Hotel Booking Predictor", layout="centered")
 st.title("🏨 Hotel Booking Cancellation Predictor")
 
 st.markdown("This app predicts whether a hotel booking will be cancelled based on customer data.")
 
-# Load model
-try:
-    model = joblib.load("models/hotel_model.pkl")
-except:
-    st.error("🚫 Model not found. Please upload 'hotel_model.pkl' to the 'models/' folder.")
-    st.stop()
+# === Model Handling ===
+model_path = "models/hotel_model.pkl"
+os.makedirs("models", exist_ok=True)
 
-# User input
+if not os.path.exists(model_path):
+    st.error("🚫 Model not found. Please upload 'hotel_model.pkl' to the 'models/' folder below to continue.")
+    uploaded_file = st.file_uploader("Upload your trained model (.pkl)", type="pkl")
+    if uploaded_file:
+        with open(model_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        st.success("✅ Model uploaded! Please rerun the app using the 🔄 button above.")
+        st.stop()
+    else:
+        st.stop()
+else:
+    model = joblib.load(model_path)
+
+# === User Input ===
 lead_time = st.slider("Lead Time (days)", 0, 500, 100)
 adults = st.number_input("Number of Adults", min_value=1, max_value=5, value=2)
 children = st.number_input("Number of Children", min_value=0, max_value=5, value=0)
 previous_cancellations = st.selectbox("Previous Cancellations", [0, 1])
 deposit_type = st.selectbox("Deposit Type", ["No Deposit", "Non Refund", "Refundable"])
 
-# Feature encoding
+# === Feature Encoding ===
 deposit_map = {"No Deposit": 0, "Non Refund": 1, "Refundable": 2}
 features = pd.DataFrame([[
     lead_time,
@@ -32,10 +42,11 @@ features = pd.DataFrame([[
     deposit_map[deposit_type]
 ]], columns=["lead_time", "adults", "children", "previous_cancellations", "deposit_type"])
 
-# Prediction
+# === Prediction ===
 if st.button("Predict Cancellation"):
     prediction = model.predict(features)[0]
     if prediction == 1:
         st.error("❌ This booking is likely to be cancelled.")
     else:
         st.success("✅ This booking is likely to be honored.")
+
